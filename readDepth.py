@@ -10,8 +10,14 @@ __license__ = "MIT"
 import argparse
 import time
 import sys
+from operator import itemgetter
 
 def regions(args):
+    """
+    Condenses a read-depth file by calculating the average read depth pr. region
+    :param args:
+    :return:
+    """
     beddb = {}
     with open(args.bedfile, 'r') as fin:
         for line in fin:
@@ -51,12 +57,39 @@ def regions(args):
                 samples[i] += int(e)
             entry += 1
         if rname != '':
-            fout.write('{}\t{}\t{}\t{}\n'.format(rname, rstart, rstop, '\t'.join([str(s) for s in samples])))
+            fout.write('{}\t{}\t{}\t{}\n'.format(rname, rstart, rstop, '\t'.join([str(s/entry) for s in samples])))
+
+def reference(args):
+    dist = {}
+    db = {}
+    outfile = '{}.dist.txt'.format(args.infile.rsplit('.', 1)[0])
+    with open(args.infile, 'r') as fin:
+        entry = 0
+        for line in fin:
+            name, start, stop, *depth = line.strip().split()
+            db[(name,start,stop)] = [float(d) for d in depth]
+    for key1, val1 in db.items():
+        if key1 not in dist:
+            dist[key1] = []
+        for key2, val2 in db.items():
+            if key1 == key2:
+                continue
+            d = sum([(a - b)**2 for a,b in zip(val1, val2)])
+            dist[key1].append(key2+(d,))
+    with open(outfile, 'w') as fout:
+        for key, val in dist.items():
+            val = sorted(val, key=itemgetter(3))
+            k = '{}:{}-{}'.format(key[0], key[1], key[2])
+            a = '\t'.join(['{}:{}-{};{:.0f}'.format(b[0],b[1],b[2],b[3]) for b in val[0:10]])
+            fout.write('{}\t{}\n'.format(k,a))
+
 
 def main(args):
     """ Main entry point of the app """
     if args.option=='regions':
         regions(args)
+    elif args.option=='reference':
+        reference(args)
     if args.log:
         with open('README.txt', 'a') as fout:
             fout.write('[{}]\t[{}]\n'.format(time.asctime(), ' '.join(sys.argv)))
