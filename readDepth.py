@@ -21,7 +21,9 @@ def regions(args):
             beddb[name].append([int(start), int(stop)])
     samples = []
     rname, rstart, rstop = '', 0, 0
-    with open(args.infile, 'r') as fin:
+    outfile = '{}.regions.txt'.format(args.infile.rsplit('.',1)[0])
+    with open(args.infile, 'r') as fin, open(outfile, 'w') as fout:
+        entry = 0
         for line in fin:
             name, pos, *depth = line.strip().split()
             if name not in beddb:
@@ -31,20 +33,25 @@ def regions(args):
                 samples = [0]*len(depth)
             if rname == '' or rname != name or pos > rstop:
                 if rname != '':
-                    print(samples)
+                    fout.write('{}\t{}\t{}\t{}\n'.format(rname, rstart, rstop,
+                                                         '\t'.join([str(s/entry) for s in samples])))
                     samples = [0] * len(depth)
                 for ind, el in enumerate(beddb[name]):
                     if pos >= el[0] and pos <= el[1]:
                         rstart, rstop = beddb[name].pop(ind)
                         rname = name
+                        entry = 0
                         break
                     else:
                         rname, rstart, rstop = '', 0, 0
+                        entry = 0
                 if rname == '':
                     continue
             for i, e in enumerate(depth):
                 samples[i] += int(e)
-        print(samples)
+            entry += 1
+        if rname != '':
+            fout.write('{}\t{}\t{}\t{}\n'.format(rname, rstart, rstop, '\t'.join([str(s) for s in samples])))
 
 def main(args):
     """ Main entry point of the app """
