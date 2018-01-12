@@ -60,27 +60,25 @@ def regions(args):
             fout.write('{}\t{}\t{}\t{}\n'.format(rname, rstart, rstop, '\t'.join([str(s/entry) for s in samples])))
 
 def reference(args):
-    dist = {}
     db = {}
-    outfile = '{}.dist.txt'.format(args.infile.rsplit('.', 1)[0])
-    with open(args.infile, 'r') as fin:
+    outfile = '{}.{}.dist.txt'.format(args.infile.rsplit('.', 1)[0], args.chrom)
+    with open(args.infile, 'r') as fin, open(outfile, 'w') as fout:
         entry = 0
         for line in fin:
             name, start, stop, *depth = line.strip().split()
             db[(name,start,stop)] = [float(d) for d in depth]
-    for key1, val1 in db.items():
-        if key1 not in dist:
-            dist[key1] = []
-        for key2, val2 in db.items():
-            if key1 == key2:
+        for key1, val1 in db.items():
+            dist = []
+            if key1[0] != args.chrom:
                 continue
-            d = sum([(a - b)**2 for a,b in zip(val1, val2)])
-            dist[key1].append(key2+(d,))
-    with open(outfile, 'w') as fout:
-        for key, val in dist.items():
-            val = sorted(val, key=itemgetter(3))
-            k = '{}:{}-{}'.format(key[0], key[1], key[2])
-            a = '\t'.join(['{}:{}-{};{:.0f}'.format(b[0],b[1],b[2],b[3]) for b in val[0:10]])
+            for key2, val2 in db.items():
+                if key1 == key2:
+                    continue
+                d = sum([(a - b)**2 for a,b in zip(val1, val2)])
+                dist.append(key2+(d,))
+            val = sorted(dist, key=itemgetter(3))
+            k = '{}:{}-{}'.format(key1[0], key1[1], key1[2])
+            a = '\t'.join(['{}:{}-{};{:.0f}'.format(b[0],b[1],b[2],b[3]) for b in val[0:100]])
             fout.write('{}\t{}\n'.format(k,a))
 
 
@@ -108,6 +106,7 @@ if __name__ == "__main__":
 
     # Optional argument which requires a parameter (eg. -d test)
     parser.add_argument("-b", "--bedfile", help='Bedfile')
+    parser.add_argument("-c", "--chrom", help='Limit analysis to this chromosome')
     parser.add_argument("-n", "--name", action="store", dest="name")
 
     # Optional verbosity counter (eg. -v, -vv, -vvv, etc.)
