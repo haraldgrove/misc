@@ -11,6 +11,7 @@ import argparse
 import time
 import sys
 from operator import itemgetter
+import numpy as np
 
 def regions(args):
     """
@@ -27,8 +28,8 @@ def regions(args):
             beddb[name].append([int(start), int(stop)])
     samples = []
     rname, rstart, rstop = '', 0, 0
-    outfile = '{}.regions.txt'.format(args.infile.rsplit('.',1)[0])
-    with open(args.infile, 'r') as fin, open(outfile, 'w') as fout:
+    outfile = '{}.regions.txt'.format(args.infile[0].rsplit('.',1)[0])
+    with open(args.infile[0], 'r') as fin, open(outfile, 'w') as fout:
         entry = 0
         for line in fin:
             name, pos, *depth = line.strip().split()
@@ -61,8 +62,8 @@ def regions(args):
 
 def reference(args):
     db = {}
-    outfile = '{}.{}.dist.txt'.format(args.infile.rsplit('.', 1)[0], args.chrom)
-    with open(args.infile, 'r') as fin, open(outfile, 'w') as fout:
+    outfile = '{}.{}.dist.txt'.format(args.infile[0].rsplit('.', 1)[0], args.chrom)
+    with open(args.infile[0], 'r') as fin, open(outfile, 'w') as fout:
         entry = 0
         for line in fin:
             name, start, stop, *depth = line.strip().split()
@@ -74,12 +75,36 @@ def reference(args):
             for key2, val2 in db.items():
                 if key1 == key2:
                     continue
-                d = sum([(a - b)**2 for a,b in zip(val1, val2)])
-                dist.append(key2+(d,))
-            val = sorted(dist, key=itemgetter(3))
+                #d = sum([(a - b)**2 for a,b in zip(val1, val2)])
+                d = np.corrcoef(val1,val2)[0,1]
+                if np.isnan(d):
+                    d = 0
+                dist.append(key2+(abs(d),))
+            val = sorted(dist, key=itemgetter(3), reverse=True)
             k = '{}:{}-{}'.format(key1[0], key1[1], key1[2])
-            a = '\t'.join(['{}:{}-{};{:.0f}'.format(b[0],b[1],b[2],b[3]) for b in val[0:100]])
+            a = '\t'.join(['{}:{}-{};{:.6f}'.format(b[0],b[1],b[2],b[3]) for b in val[0:100]])
             fout.write('{}\t{}\n'.format(k,a))
+
+def compare(args):
+    db = {}
+    with open(args.infile[1], 'r') as fin:
+        for line in fin:
+            el = line.strip().split()
+            db[el[0]] = [e.split(';')[0] for e in el[1:]]
+    outfile = 'compare.txt'
+    with open(args.infile[0], 'r') as fin, open(outfile, 'w') as fout:
+        for line in fin:
+            el = line.strip().split()
+            key = el[0]
+            val = [e.split(';')[0] for e in el[1:]]
+            if key not in db:
+                fout.write('{}\tmissing\n'.format(key))
+                continue
+            old = db[key]
+            x = set(val)
+            y = set(old)
+            same = len(x.intersection(y))
+            fout.write('{}\t{}\n'.format(key,same))
 
 
 def main(args):
@@ -88,6 +113,8 @@ def main(args):
         regions(args)
     elif args.option=='reference':
         reference(args)
+    elif args.option=='compare':
+        compare(args)
     if args.log:
         with open('README.txt', 'a') as fout:
             fout.write('[{}]\t[{}]\n'.format(time.asctime(), ' '.join(sys.argv)))
@@ -99,7 +126,7 @@ if __name__ == "__main__":
 
     # Required positional argument
     parser.add_argument("option", help="Operation")
-    parser.add_argument("infile", help="Input file")
+    parser.add_argument("infile", nargs='*', help="Input file")
 
     # Optional argument flag which defaults to False
     parser.add_argument('-l', '--log', action="store_true", default=False, help="Save command to 'README.txt'")
