@@ -4,7 +4,7 @@ Module Docstring
 """
 
 __author__ = "Harald Grove"
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 __license__ = "MIT"
 
 import argparse
@@ -61,6 +61,13 @@ def regions(args):
             fout.write('{}\t{}\t{}\t{}\n'.format(rname, rstart, rstop, '\t'.join([str(s/entry) for s in samples])))
 
 def reference(args):
+    """
+    Compares each region with every other region and outputs the 100 most closely
+    matched regions.
+    Criteria for what is "close" is very much WIP.
+    :param args:
+    :return:
+    """
     db = {}
     outfile = '{}.{}.dist.txt'.format(args.infile[0].rsplit('.', 1)[0], args.chrom)
     with open(args.infile[0], 'r') as fin, open(outfile, 'w') as fout:
@@ -84,6 +91,34 @@ def reference(args):
             k = '{}:{}-{}'.format(key1[0], key1[1], key1[2])
             a = '\t'.join(['{}:{}-{};{:.6f}'.format(b[0],b[1],b[2],b[3]) for b in val[0:100]])
             fout.write('{}\t{}\n'.format(k,a))
+
+def regionstats(args):
+    """
+    Calculates statistics for each region
+    Mean, std, boxplot-outliers
+    :param args:
+    :return:
+    """
+    outfile = '{}.NTM1_stats.txt'.format(args.infile[0].rsplit('.', 1)[0])
+    with open(args.infile[0], 'r') as fin, open(outfile, 'w') as fout:
+        fout.write('chrom\tstart\tstop\tmean\tstd\tQ1\tmedian\tQ3\tO1\tO3\n')
+        entry = 0
+        next(fin)
+        for line in fin:
+            name, start, stop, *depth = line.strip().split()
+            # SCD: 1-24, NTM: 25-54, THA: 55-70, NTM1:25-39, NTM2:40-54
+            a = np.array([float(d) for d in depth[24:39]])
+            mn = np.mean(a)
+            md = np.median(a)
+            sd = np.std(a)
+            q1 = np.percentile(a,25)
+            q3 = np.percentile(a,75)
+            iqr = q3-q1
+            o1 = sum(a<(q1-1.5*iqr))
+            o3 = sum(a>(q3+1.5*iqr))
+            fout.write('{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n'.format(
+                name,start,stop,mn,md,sd,q1,q3,o1,o3))
+
 
 def compare(args):
     db = {}
@@ -115,9 +150,11 @@ def main(args):
         reference(args)
     elif args.option=='compare':
         compare(args)
+    elif args.option=='stats':
+        regionstats(args)
     if args.log:
         with open('README.txt', 'a') as fout:
-            fout.write('[{}]\t[{}]\n'.format(time.asctime(), ' '.join(sys.argv)))
+            fout.write('[{}]\t[{}]\t[{}]\n'.format(time.asctime(), __version__,' '.join(sys.argv)))
 
 
 if __name__ == "__main__":
@@ -129,7 +166,7 @@ if __name__ == "__main__":
     parser.add_argument("infile", nargs='*', help="Input file")
 
     # Optional argument flag which defaults to False
-    parser.add_argument('-l', '--log', action="store_true", default=False, help="Save command to 'README.txt'")
+    parser.add_argument('-l', '--log', action="store_true", default=True, help="Stop logging to 'README.txt'")
 
     # Optional argument which requires a parameter (eg. -d test)
     parser.add_argument("-b", "--bedfile", help='Bedfile')
