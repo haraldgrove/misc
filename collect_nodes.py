@@ -63,12 +63,49 @@ def collect_nodes(args, tree, data):
             fout.write('#------------------------\n')
             go_wide(tree, first, data, fout)
 
+def filter_nodes(args):
+    if args.filter:
+        fullname =  args.infile
+    else:
+        fullname = args.output
+    prefix = fullname.rsplit('.', 1)[0]
+    fileA = '{}.A.txt'.format(prefix)
+    fileB = '{}.B.txt'.format(prefix)
+    c1, c2 = [int(c)-1 for c in args.columns.split(',')]
+    with open(fullname, 'r') as fin, open(fileA, 'w') as foutA, open(fileB, 'w') as foutB:
+        lines, countA, countB = [], [], []
+        sizesA, sizesB = [], []
+        for line in fin:
+            if line.startswith('#'):
+                if len(countA) > 1:
+                    foutA.write('#{};{}------------------------\n'.format(len(countA), sum(sizesA)))
+                if len(countB) > 1:
+                    foutB.write('#{};{}------------------------\n'.format(len(countB), sum(sizesB)))
+                for items in lines:
+                    if len(countA) > 1:
+                        foutA.write(items)
+                    if len(countB) > 1:
+                        foutB.write(items)
+                lines, countA, countB = [], [], []
+                sizesA, sizesB = [], []
+                continue
+            l = line.strip().split()
+            lines.append(line)
+            if l[c1] not in countA:
+                countA.append(l[c1])
+                sizesA.append(int(l[c1+2]))
+            if l[c2] not in countB:
+                countB.append(l[c2])
+                sizesB.append(int(l[c2 + 2]))
+
 def main(args):
     """ Main entry point of the app """
-    print('Reading nodes')
-    tree, data = read_nodes(args)
-    print('Collecting groups')
-    groups = collect_nodes(args, tree, data)
+    if not args.filter:
+        print('Reading nodes')
+        tree, data = read_nodes(args)
+        print('Collecting groups')
+        collect_nodes(args, tree, data)
+    filter_nodes(args)
 
     if args.log:
         with open('README.txt', 'a') as fout:
@@ -84,6 +121,7 @@ if __name__ == "__main__":
 
     # Optional argument flag which defaults to False
     parser.add_argument('-l', '--log', action="store_true", default=False, help="Save command to 'README.txt'")
+    parser.add_argument('-f', '--filter', action="store_true", default=False, help="Only run filter step")
 
     # Optional argument which requires a parameter (eg. -d test)
     parser.add_argument("-o", "--output", help="Output file")
