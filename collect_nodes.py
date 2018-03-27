@@ -11,6 +11,7 @@ import argparse
 import time
 import sys
 import random
+import pandas as pd
 
 def read_nodes(args):
     data = {}
@@ -64,6 +65,11 @@ def collect_nodes(args, tree, data):
             go_wide(tree, first, data, fout)
 
 def filter_nodes(args):
+    """
+    Remove
+    :param args:
+    :return: None
+    """
     if args.filter:
         fullname =  args.infile
     else:
@@ -73,40 +79,117 @@ def filter_nodes(args):
     fileB = '{}.B.txt'.format(prefix)
     c1, c2 = [int(c)-1 for c in args.columns.split(',')]
     with open(fullname, 'r') as fin, open(fileA, 'w') as foutA, open(fileB, 'w') as foutB:
-        lines, countA, countB = [], [], []
-        sizesA, sizesB = [], []
+        lines = {}
+        dbA, dbB = [], []
         for line in fin:
+            # Next block starts
             if line.startswith('#'):
-                if len(countA) > 1:
-                    foutA.write('#{};{}------------------------\n'.format(len(countA), sum(sizesA)))
-                if len(countB) > 1:
-                    foutB.write('#{};{}------------------------\n'.format(len(countB), sum(sizesB)))
+                if len(dbA) > 1:
+                    foutA.write('#{};{}------------------------\n'.format(len(dbA), sum(sizesA)))
+                if len(dbB) > 1:
+                    foutB.write('#{};{}------------------------\n'.format(len(dbB), sum(sizesB)))
                 for items in lines:
-                    if len(countA) > 1:
+                    if len(dbA) > 1:
                         foutA.write(items)
-                    if len(countB) > 1:
+                    if len(dbB) > 1:
                         foutB.write(items)
-                lines, countA, countB = [], [], []
+                lines, dbA, dbB = [], [], []
                 sizesA, sizesB = [], []
                 continue
             l = line.strip().split()
-            lines.append(line)
-            if l[c1] not in countA:
-                countA.append(l[c1])
-                sizesA.append(int(l[c1+2]))
-            if l[c2] not in countB:
-                countB.append(l[c2])
+            lines.append(l)
+            name1, name2 = l[c1], l[c2]
+            if name1 not in dbA:
+                dbA.append(name1)
+                sizesA.append(int(l[c2 + 2]))
+            if name2 not in dbB:
+                dbB.append(l[c2])
                 sizesB.append(int(l[c2 + 2]))
+        foutA.write('#------------------------\n')
+        foutB.write('#------------------------\n')
+
+def clean_df(df):
+    df = df.sort_values(['name2', 'zstart2+'])
+    df = df.reset_index(drop=True)
+    print(df)
+    deleted = list(df.index)
+    prow = None
+    for ind, row in df.iterrows():
+        if prow is None:
+            prow = row
+            continue
+        if (row['name2'] == prow['name2']) and (row['name1'] != prow['name1']):
+            try:
+                deleted.pop(deleted.index(ind))
+            except (IndexError, ValueError):
+                pass
+            try:
+                deleted.pop(deleted.index(ind-1))
+            except (IndexError, ValueError):
+                pass
+        prow = row
+    df = df.drop(df.index[deleted])
+    return df
+
+def build_scf(args, df):
+    with open(args.output, 'a') as fout:
+        fout.write('#--------------------\n')
+        df = df.sort_values(['name2','zstart2+'])
+        df = df.reset_index(drop=True)
+        gaps = []
+        for ind, row in df.iterrows():
+            if ind == 0:
+                num1 = row['end2+']
+                prow = row
+                fout.write('{}\t{}\t{}\n'.format(prow['name1'], prow['size1'],prow['strand2']))
+                continue
+            num2 = row['zstart2+']
+            gap = num2  - num1
+            num1 = row['end2+']
+            if prow['name1'] == row['name1']:
+                continue
+            fout.write('gap\t{}\t+\n{}\t{}\t{}\n'.format(max(-1,gap),row['name1'],row['size1'],row['strand2']))
+            prow = row
+
+def build_scaffolds(args):
+    c1, c2 = [int(c)-1 for c in args.columns.split(',')]
+    with open(args.output, 'w') as fout:
+        pass
+    with open(args.infile, 'r') as fin:
+        lines = []
+        for line in fin:
+            if line.startswith('#'):
+                if len(lines) > 0:
+                    df = pd.DataFrame(lines, columns=['score','name1','strand1','size1','zstart1','end1',
+                                                      'name2','strand2','size2','zstart2','end2',
+                                                      'identity','idPct','coverage','covPct',
+                                                      'zstart2+','end2+'])
+                    df = df.astype(dtype={'zstart2':'int64'})
+                    df = clean_df(df)
+                    build_scf(args, df)
+                lines = []
+                continue
+            l = line.strip().split()
+            if l[7] == '-':
+                l.append(int(l[8])-int(l[10]))
+                l.append(int(l[8])-int(l[9]))
+            else:
+                l.append(int(l[9]))
+                l.append(int(l[10]))
+            lines.append(l)
 
 def main(args):
     """ Main entry point of the app """
-    if not args.filter:
+    if args.build:
+        print('Building scaffolds')
+        build_scaffolds(args)
+    elif args.filter:
+        filter_nodes(args)
+    else:
         print('Reading nodes')
         tree, data = read_nodes(args)
         print('Collecting groups')
         collect_nodes(args, tree, data)
-    filter_nodes(args)
-
     if args.log:
         with open('README.txt', 'a') as fout:
             fout.write('[{}]\t[{}]\n'.format(time.asctime(), ' '.join(sys.argv)))
@@ -122,6 +205,7 @@ if __name__ == "__main__":
     # Optional argument flag which defaults to False
     parser.add_argument('-l', '--log', action="store_true", default=False, help="Save command to 'README.txt'")
     parser.add_argument('-f', '--filter', action="store_true", default=False, help="Only run filter step")
+    parser.add_argument('-b', '--build', action="store_true", default=False, help="Only run build step")
 
     # Optional argument which requires a parameter (eg. -d test)
     parser.add_argument("-o", "--output", help="Output file")
