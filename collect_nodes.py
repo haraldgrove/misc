@@ -97,7 +97,12 @@ def filter_nodes(args):
                 sizesA, sizesB = [], []
                 continue
             l = line.strip().split()
-            lines.append(l)
+            # Filter out very short hits (less than 500 bp, if this doesn't amount to above 80% coverage.
+            # TODO: Also idPct less than 98%
+            a,b = [int(x) for x in l[13].split('/')]
+            if a < 500 and (a / b) < 0.8:
+                continue
+            lines.append(line)
             name1, name2 = l[c1], l[c2]
             if name1 not in dbA:
                 dbA.append(name1)
@@ -109,9 +114,13 @@ def filter_nodes(args):
         foutB.write('#------------------------\n')
 
 def clean_df(df):
+    """
+    Remove alignments (rows) that are 'unecessary', i.e. not helping to bridge any contigs
+    :param df:
+    :return:
+    """
     df = df.sort_values(['name2', 'zstart2+'])
     df = df.reset_index(drop=True)
-    print(df)
     deleted = list(df.index)
     prow = None
     for ind, row in df.iterrows():
@@ -131,30 +140,41 @@ def clean_df(df):
     df = df.drop(df.index[deleted])
     return df
 
-def build_scf(args, df):
+def build_scf(args, df, coll):
     with open(args.output, 'a') as fout:
-        fout.write('#--------------------\n')
         df = df.sort_values(['name2','zstart2+'])
         df = df.reset_index(drop=True)
-        gaps = []
+        if args.verbose > 0:
+            print(df)
         for ind, row in df.iterrows():
+            # We're working on pairs, so just store the first and move on
             if ind == 0:
-                num1 = row['end2+']
                 prow = row
-                fout.write('{}\t{}\t{}\n'.format(prow['name1'], prow['size1'],prow['strand2']))
                 continue
-            num2 = row['zstart2+']
-            gap = num2  - num1
-            num1 = row['end2+']
-            if prow['name1'] == row['name1']:
+            # The two lines have to be from the same sequence in 2 but different sequence in 1
+            if (prow['name2'] != row['name2']) or (prow['name1'] == row['name1']):
+                prow = row
                 continue
-            fout.write('gap\t{}\t+\n{}\t{}\t{}\n'.format(max(-1,gap),row['name1'],row['size1'],row['strand2']))
+            # The distance from the end of the first section to the beginning of the second section
+            gap = row['zstart2+'] - prow['end2+']
+            # Determining the orientation of the two sections
+            if prow['strand2'] == '-':
+                pre1 = [prow['zstart1'], '-']
+            else:
+                pre1 = [prow['size1'] - prow['end1'], '+']
+            if row['strand2'] == '-':
+                post1 = [row['size1'] - row['end1'], '-']
+            else:
+                post1 = [row['zstart1'], '+']
+            overlap = gap - (pre1[0] + post1[0])
+            fout.write('{}\t{}\t{}\t{}\t{}\t{}\n'.format(coll, prow['name1'], pre1[1], overlap, row['name1'], post1[1]))
             prow = row
 
 def build_scaffolds(args):
     c1, c2 = [int(c)-1 for c in args.columns.split(',')]
     with open(args.output, 'w') as fout:
         pass
+    coll = 0
     with open(args.infile, 'r') as fin:
         lines = []
         for line in fin:
@@ -164,9 +184,11 @@ def build_scaffolds(args):
                                                       'name2','strand2','size2','zstart2','end2',
                                                       'identity','idPct','coverage','covPct',
                                                       'zstart2+','end2+'])
-                    df = df.astype(dtype={'zstart2':'int64'})
+                    df = df.astype(dtype={'zstart2':'int64','end2':'int64','size2':'int64',
+                                          'zstart1':'int64','end1':'int64', 'size1':'int64'})
                     df = clean_df(df)
-                    build_scf(args, df)
+                    build_scf(args, df, coll)
+                    coll += 1
                 lines = []
                 continue
             l = line.strip().split()
