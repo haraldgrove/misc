@@ -98,7 +98,10 @@ def filter_nodes(args):
                 continue
             l = line.strip().split()
             # Filter out very short hits (less than 500 bp, if this doesn't amount to above 80% coverage.
-            # TODO: Also idPct less than 98%
+            # Filter out hits with seq ID < 98%
+            a, b = [int(x) for x in l[11].split('/')]
+            if (a/b) < 0.98:
+                continue
             a,b = [int(x) for x in l[13].split('/')]
             if a < 500 and (a / b) < 0.8:
                 continue
