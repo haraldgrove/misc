@@ -1,6 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """
-Module Docstring
+Note about coordinates:
+Start, stop are on the forward strand, indicate reverse strand by using the option "-r".
+Coordinates are 1-inclusive [1..N]
 """
 
 __author__ = "Harald Grove"
@@ -10,9 +12,10 @@ __license__ = "MIT"
 import argparse
 import time
 import sys
+import gzip
 
 
-def getfasta(fastafile, pattern):
+def getfasta(fastafile, pattern, reverse=False):
     """
     Sends any sequence with name matching the pattern to stdout
     :param fastafile: Input fastafile, plain text
@@ -20,7 +23,11 @@ def getfasta(fastafile, pattern):
     :return: NA
     """
     active = False
-    with open(fastafile, 'r') as fin:
+    if fastafile[-3:] == '.gz':
+        op = gzip.open
+    else:
+        op = open
+    with op(fastafile, 'rt') as fin:
         for line in fin:
             if line.startswith('>'):
                 if pattern in line:
@@ -31,22 +38,30 @@ def getfasta(fastafile, pattern):
             elif active:
                 sys.stdout.write(line)
 
-def getpartialfasta(fastafile, pattern, start, end):
+def getpartialfasta(fastafile, pattern, start, end, reverse):
     """
     Sends sequence selection of any sequence with name matching pattern to stdout
     :param fastafile: Input fastafile, plain text
     :param pattern: Whole or part of sequence name
-    :param start: Start coordinate, 1-based.
-    :param end: End coordinate, 1-based.
+    :param start: Start coordinate, 0-based. (inclusive)
+    :param end: End coordinate, 0-based. (exclusive)
     :return:
     """
+    trans = str.maketrans('ACGTacgt', 'TGCAtgca')
     active = False
+    if fastafile[-3:] == '.gz':
+        op = gzip.open
+    else:
+        op = open
     seq = ''
-    with open(fastafile, 'r') as fin:
+    with op(fastafile, 'r') as fin:
         for line in fin:
             if line.startswith('>'):
                 if active:
-                    sys.stdout.write('{}\n'.format(seq[start-1:end]))
+                    if not reverse:
+                        sys.stdout.write('{}\n'.format(seq[start:end]))
+                    else:
+                        sys.stdout.write('{}\n'.format(seq[start:end][::-1].translate(trans)))
                     seq = ''
                 if pattern in line:
                     active = True
@@ -57,15 +72,19 @@ def getpartialfasta(fastafile, pattern, start, end):
                 seq += line.strip()
         else:
             if active:
-                sys.stdout.write('{}\n'.format(seq[start-1:end]))
+                if not reverse:
+                    sys.stdout.write('{}\n'.format(seq[start:end]))
+                else:
+                    sys.stdout.write('{}\n'.format(seq[start:end][::-1].translate(trans)))
+
 
 def main(args):
     """ Main entry point of the app """
     if args.coordinates == "0,0":
-        getfasta(args.fastafile, args.pattern)
+        getfasta(args.fastafile, args.pattern, args.reverse)
     else:
         s,e = [int(c) for c in args.coordinates.split(",")]
-        getpartialfasta(args.fastafile, args.pattern, s, e)
+        getpartialfasta(args.fastafile, args.pattern, s-1, e, args.reverse)
     if args.log:
         with open('README.txt', 'a') as fout:
             fout.write('[{}]\t[{}]\n'.format(time.asctime(), ' '.join(sys.argv)))
@@ -84,6 +103,7 @@ if __name__ == "__main__":
 
     # Optional argument which requires a parameter (eg. -d test)
     parser.add_argument("-c", "--coordinates", help="Base pair coords. (1-based): begin,end", default="0,0")
+    parser.add_argument("-r", "--reverse", action="store_true", default=False, help="Reverse strand")
 
     # Optional verbosity counter (eg. -v, -vv, -vvv, etc.)
     parser.add_argument(
