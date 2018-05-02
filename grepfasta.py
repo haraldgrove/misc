@@ -54,7 +54,7 @@ def getpartialfasta(fastafile, pattern, start, end, reverse):
     else:
         op = open
     seq = ''
-    with op(fastafile, 'r') as fin:
+    with op(fastafile, 'rt') as fin:
         for line in fin:
             if line.startswith('>'):
                 if active:
