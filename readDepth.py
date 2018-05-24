@@ -13,6 +13,7 @@ import sys
 from operator import itemgetter
 import numpy as np
 
+
 def regions(args):
     """
     Condenses a read-depth file by calculating the average read depth pr. region
@@ -20,16 +21,16 @@ def regions(args):
     :return:
     """
     beddb = {}
-    with open(args.bedfile, 'r') as fin:
+    with open(args.bedfile, "r") as fin:
         for line in fin:
             name, start, stop, *rest = line.strip().split()
             if name not in beddb:
                 beddb[name] = []
             beddb[name].append([int(start), int(stop)])
     samples = []
-    rname, rstart, rstop = '', 0, 0
-    outfile = '{}.regions.txt'.format(args.infile[0].rsplit('.',1)[0])
-    with open(args.infile[0], 'r') as fin, open(outfile, 'w') as fout:
+    rname, rstart, rstop = "", 0, 0
+    outfile = "{}.regions.txt".format(args.infile[0].rsplit(".", 1)[0])
+    with open(args.infile[0], "r") as fin, open(outfile, "w") as fout:
         entry = 0
         for line in fin:
             name, pos, *depth = line.strip().split()
@@ -37,11 +38,17 @@ def regions(args):
                 continue
             pos = int(pos)
             if len(samples) == 0:
-                samples = [0]*len(depth)
-            if rname == '' or rname != name or pos > rstop:
-                if rname != '':
-                    fout.write('{}\t{}\t{}\t{}\n'.format(rname, rstart, rstop,
-                                                         '\t'.join([str(s/entry) for s in samples])))
+                samples = [0] * len(depth)
+            if rname == "" or rname != name or pos > rstop:
+                if rname != "":
+                    fout.write(
+                        "{}\t{}\t{}\t{}\n".format(
+                            rname,
+                            rstart,
+                            rstop,
+                            "\t".join([str(s / entry) for s in samples]),
+                        )
+                    )
                     samples = [0] * len(depth)
                 for ind, el in enumerate(beddb[name]):
                     if pos >= el[0] and pos <= el[1]:
@@ -50,15 +57,20 @@ def regions(args):
                         entry = 0
                         break
                     else:
-                        rname, rstart, rstop = '', 0, 0
+                        rname, rstart, rstop = "", 0, 0
                         entry = 0
-                if rname == '':
+                if rname == "":
                     continue
             for i, e in enumerate(depth):
                 samples[i] += int(e)
             entry += 1
-        if rname != '':
-            fout.write('{}\t{}\t{}\t{}\n'.format(rname, rstart, rstop, '\t'.join([str(s/entry) for s in samples])))
+        if rname != "":
+            fout.write(
+                "{}\t{}\t{}\t{}\n".format(
+                    rname, rstart, rstop, "\t".join([str(s / entry) for s in samples])
+                )
+            )
+
 
 def reference(args):
     """
@@ -69,12 +81,12 @@ def reference(args):
     :return:
     """
     db = {}
-    outfile = '{}.{}.dist.txt'.format(args.infile[0].rsplit('.', 1)[0], args.chrom)
-    with open(args.infile[0], 'r') as fin, open(outfile, 'w') as fout:
+    outfile = "{}.{}.dist.txt".format(args.infile[0].rsplit(".", 1)[0], args.chrom)
+    with open(args.infile[0], "r") as fin, open(outfile, "w") as fout:
         entry = 0
         for line in fin:
             name, start, stop, *depth = line.strip().split()
-            db[(name,start,stop)] = [float(d) for d in depth]
+            db[(name, start, stop)] = [float(d) for d in depth]
         for key1, val1 in db.items():
             dist = []
             if key1[0] != args.chrom:
@@ -82,15 +94,18 @@ def reference(args):
             for key2, val2 in db.items():
                 if key1 == key2:
                     continue
-                #d = sum([(a - b)**2 for a,b in zip(val1, val2)])
-                d = np.corrcoef(val1,val2)[0,1]
+                # d = sum([(a - b)**2 for a,b in zip(val1, val2)])
+                d = np.corrcoef(val1, val2)[0, 1]
                 if np.isnan(d):
                     d = 0
-                dist.append(key2+(abs(d),))
+                dist.append(key2 + (abs(d),))
             val = sorted(dist, key=itemgetter(3), reverse=True)
-            k = '{}:{}-{}'.format(key1[0], key1[1], key1[2])
-            a = '\t'.join(['{}:{}-{};{:.6f}'.format(b[0],b[1],b[2],b[3]) for b in val[0:100]])
-            fout.write('{}\t{}\n'.format(k,a))
+            k = "{}:{}-{}".format(key1[0], key1[1], key1[2])
+            a = "\t".join(
+                ["{}:{}-{};{:.6f}".format(b[0], b[1], b[2], b[3]) for b in val[0:100]]
+            )
+            fout.write("{}\t{}\n".format(k, a))
+
 
 def regionstats(args):
     """
@@ -99,9 +114,9 @@ def regionstats(args):
     :param args:
     :return:
     """
-    outfile = '{}.NTM1_stats.txt'.format(args.infile[0].rsplit('.', 1)[0])
-    with open(args.infile[0], 'r') as fin, open(outfile, 'w') as fout:
-        fout.write('chrom\tstart\tstop\tmean\tstd\tQ1\tmedian\tQ3\tO1\tO3\n')
+    outfile = "{}.NTM1_stats.txt".format(args.infile[0].rsplit(".", 1)[0])
+    with open(args.infile[0], "r") as fin, open(outfile, "w") as fout:
+        fout.write("chrom\tstart\tstop\tmean\tstd\tQ1\tmedian\tQ3\tO1\tO3\n")
         entry = 0
         next(fin)
         for line in fin:
@@ -111,50 +126,57 @@ def regionstats(args):
             mn = np.mean(a)
             md = np.median(a)
             sd = np.std(a)
-            q1 = np.percentile(a,25)
-            q3 = np.percentile(a,75)
-            iqr = q3-q1
-            o1 = sum(a<(q1-1.5*iqr))
-            o3 = sum(a>(q3+1.5*iqr))
-            fout.write('{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n'.format(
-                name,start,stop,mn,md,sd,q1,q3,o1,o3))
+            q1 = np.percentile(a, 25)
+            q3 = np.percentile(a, 75)
+            iqr = q3 - q1
+            o1 = sum(a < (q1 - 1.5 * iqr))
+            o3 = sum(a > (q3 + 1.5 * iqr))
+            fout.write(
+                "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(
+                    name, start, stop, mn, md, sd, q1, q3, o1, o3
+                )
+            )
 
 
 def compare(args):
     db = {}
-    with open(args.infile[1], 'r') as fin:
+    with open(args.infile[1], "r") as fin:
         for line in fin:
             el = line.strip().split()
-            db[el[0]] = [e.split(';')[0] for e in el[1:]]
-    outfile = 'compare.txt'
-    with open(args.infile[0], 'r') as fin, open(outfile, 'w') as fout:
+            db[el[0]] = [e.split(";")[0] for e in el[1:]]
+    outfile = "compare.txt"
+    with open(args.infile[0], "r") as fin, open(outfile, "w") as fout:
         for line in fin:
             el = line.strip().split()
             key = el[0]
-            val = [e.split(';')[0] for e in el[1:]]
+            val = [e.split(";")[0] for e in el[1:]]
             if key not in db:
-                fout.write('{}\tmissing\n'.format(key))
+                fout.write("{}\tmissing\n".format(key))
                 continue
             old = db[key]
             x = set(val)
             y = set(old)
             same = len(x.intersection(y))
-            fout.write('{}\t{}\n'.format(key,same))
+            fout.write("{}\t{}\n".format(key, same))
 
 
 def main(args):
     """ Main entry point of the app """
-    if args.option=='regions':
+    if args.option == "regions":
         regions(args)
-    elif args.option=='reference':
+    elif args.option == "reference":
         reference(args)
-    elif args.option=='compare':
+    elif args.option == "compare":
         compare(args)
-    elif args.option=='stats':
+    elif args.option == "stats":
         regionstats(args)
     if args.log:
-        with open('README.txt', 'a') as fout:
-            fout.write('[{}]\t[{}]\t[{}]\n'.format(time.asctime(), __version__,' '.join(sys.argv)))
+        with open("README.txt", "a") as fout:
+            fout.write(
+                "[{}]\t[{}]\t[{}]\n".format(
+                    time.asctime(), __version__, " ".join(sys.argv)
+                )
+            )
 
 
 if __name__ == "__main__":
@@ -163,29 +185,33 @@ if __name__ == "__main__":
 
     # Required positional argument
     parser.add_argument("option", help="Operation")
-    parser.add_argument("infile", nargs='*', help="Input file")
+    parser.add_argument("infile", nargs="*", help="Input file")
 
     # Optional argument flag which defaults to False
-    parser.add_argument('-l', '--log', action="store_true", default=True, help="Stop logging to 'README.txt'")
+    parser.add_argument(
+        "-l",
+        "--log",
+        action="store_true",
+        default=True,
+        help="Stop logging to 'README.txt'",
+    )
 
     # Optional argument which requires a parameter (eg. -d test)
-    parser.add_argument("-b", "--bedfile", help='Bedfile')
-    parser.add_argument("-c", "--chrom", help='Limit analysis to this chromosome')
+    parser.add_argument("-b", "--bedfile", help="Bedfile")
+    parser.add_argument("-c", "--chrom", help="Limit analysis to this chromosome")
     parser.add_argument("-n", "--name", action="store", dest="name")
 
     # Optional verbosity counter (eg. -v, -vv, -vvv, etc.)
     parser.add_argument(
-        '-v',
-        '--verbose',
-        action='count',
-        default=0,
-        help="Verbosity (-v, -vv, etc)")
+        "-v", "--verbose", action="count", default=0, help="Verbosity (-v, -vv, etc)"
+    )
 
     # Specify output of '--version'
     parser.add_argument(
-        '--version',
-        action='version',
-        version='%(prog)s (version {version})'.format(version=__version__))
+        "--version",
+        action="version",
+        version="%(prog)s (version {version})".format(version=__version__),
+    )
 
     args = parser.parse_args()
     main(args)
