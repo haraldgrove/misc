@@ -16,7 +16,7 @@ import os.path
 import gzip
 
 
-def getfasta(fastafile, pattern, reverse=False):
+def getfasta(fastafile, pattern, full=False, reverse=False):
     """
     Sends any sequence with name matching the pattern to stdout
     :param fastafile: Input fastafile, plain text
@@ -31,7 +31,7 @@ def getfasta(fastafile, pattern, reverse=False):
     with op(fastafile, "rt") as fin:
         for line in fin:
             if line.startswith(">"):
-                if pattern in line:
+                if (not full and pattern in line) or (full and pattern == line.strip()[1:]):
                     active = True
                     sys.stdout.write(line)
                 else:
@@ -156,7 +156,7 @@ def main(args):
         getbedfasta(args.fastafile, args.pattern)
     else:
         if args.coordinates == "0,0":
-            getfasta(args.fastafile, args.pattern, args.reverse)
+            getfasta(args.fastafile, args.pattern, args.full, args.reverse)
         else:
             s, e = [int(c) for c in args.coordinates.split(",")]
             getpartialfasta(args.fastafile, args.pattern, s - 1, e, args.reverse)
@@ -188,6 +188,9 @@ if __name__ == "__main__":
         "--coordinates",
         help="Base pair coords. (1-based): begin,end",
         default="0,0",
+    )
+    parser.add_argument(
+        "-f", "--full", action="store_true", default=False, help="Full title"
     )
     parser.add_argument(
         "-r", "--reverse", action="store_true", default=False, help="Reverse strand"
