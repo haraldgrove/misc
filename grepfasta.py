@@ -104,6 +104,11 @@ def getbedfasta(fastafile, bedfile):
                 chrom, start, end = l
                 name = "{}:{}-{}".format(chrom, start, end)
                 strand = "+"
+            elif len(l) == 1:
+                chrom = l[0]
+                start = end = 0
+                name = "{}:{}-{}".format(chrom, start, end)
+                strand = "+"
             else:
                 continue
             if chrom not in bed:
@@ -121,6 +126,8 @@ def getbedfasta(fastafile, bedfile):
             if line.startswith(">"):
                 if active:
                     for (name, start, end, strand) in bed[chrom]:
+                        if end == 0:
+                            end = len(seq)
                         if strand == "+":
                             sys.stdout.write(">{}\n{}\n".format(name, seq[start:end]))
                         else:
@@ -140,6 +147,8 @@ def getbedfasta(fastafile, bedfile):
         else:
             if active:
                 for (name, start, end, strand) in bed[chrom]:
+                    if end == 0:
+                        end = len(seq)
                     if strand == "+":
                         sys.stdout.write(">{}\n{}\n".format(name, seq[start:end]))
                     else:
