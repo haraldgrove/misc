@@ -15,6 +15,7 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA as sklearnPCA
+from adjustText import adjust_text
 from scipy import stats
 
 matplotlib.use('Agg') # no UI backend
@@ -38,31 +39,68 @@ def dopca(args):
         X = StandardScaler().fit_transform(X)
     sklearn_pca = sklearnPCA(n_components=9)
     Y_sklearn = sklearn_pca.fit_transform(X)
-    colorbar = ['#e6194b', '#3cb44b', '#ffe119', '#0082c8', '#f58231', '#911eb4', '#46f0f0', '#f032e6', '#d2f53c',
-                '#fabebe',
-                '#008080', '#e6beff', '#aa6e28', '#fffac8', '#800000', '#aaffc3', '#808000', '#ffd8b1', '#000080',
-                '#808080']
-    colorbar2 = ['#FFFFFF', '#000000', '#aaaaaa']
-    with plt.style.context('seaborn-whitegrid'):
+    colorbar = [
+        "#e6194b",
+        "#3cb44b",
+        "#ffe119",
+        "#0082c8",
+        "#f58231",
+        "#911eb4",
+        "#46f0f0",
+        "#f032e6",
+        "#d2f53c",
+        "#fabebe",
+        "#008080",
+        "#e6beff",
+        "#aa6e28",
+        "#fffac8",
+        "#800000",
+        "#aaffc3",
+        "#808000",
+        "#ffd8b1",
+        "#000080",
+        "#808080",
+    ]
+    colorbar2 = ["#FFFFFF", "#000000", "#aaaaaa"]
+    with plt.style.context("seaborn-whitegrid"):
+        texts = []
         fig, ax = plt.subplots(1, 1, figsize=(10, 10))
-        for lab, col in zip(group1, colorbar[0:len(group1)]):
-            plt.scatter(Y_sklearn[y1 == lab, 0], Y_sklearn[y1 == lab, 1], label=lab, c=col, s=100)
+        for lab, col in zip(group1, colorbar[0 : len(group1)]):
+            plt.scatter(
+                Y_sklearn[y1 == lab, 0],
+                Y_sklearn[y1 == lab, 1],
+                label=lab,
+                c=col,
+                s=100,
+            )
         if args.labels:
             for ind, name in enumerate(df.index):
                 plt.text(Y_sklearn[ind, 0]+5, Y_sklearn[ind, 1]+5, name, fontsize=12)
         xp1, xp2 = sklearn_pca.explained_variance_[0:2]
-        plt.xlabel('PC 1 [{:.1f}%]'.format(100 * xp1 / sum(sklearn_pca.explained_variance_)))
-        plt.ylabel('PC 2 [{:.1f}%]'.format(100 * xp2 / sum(sklearn_pca.explained_variance_)))
+        plt.xlabel(
+            "PC 1 [{:.1f}%]".format(100 * xp1 / sum(sklearn_pca.explained_variance_))
+        )
+        plt.ylabel(
+            "PC 2 [{:.1f}%]".format(100 * xp2 / sum(sklearn_pca.explained_variance_))
+        )
         # use facecolors='none' for open circles
         # Add secondary grouping to the plot
         if False:
-            for lab, col in zip(group2, colorbar2[0:len(group2)]):
-                plt.scatter(Y_sklearn[y2 == lab, 0], Y_sklearn[y2 == lab, 1], s=10, marker='o',
-                            facecolors=col, label=lab, edgecolors=col)
+            for lab, col in zip(group2, colorbar2[0 : len(group2)]):
+                plt.scatter(
+                    Y_sklearn[y2 == lab, 0],
+                    Y_sklearn[y2 == lab, 1],
+                    s=10,
+                    marker="o",
+                    facecolors=col,
+                    label=lab,
+                    edgecolors=col,
+                )
         plt.legend(loc=0, frameon=True)
         plt.tight_layout()
-        #plt.show()
-        fig.savefig('{}.png'.format(args.infile))
+        adjust_text(texts, arrowprops=dict(arrowstyle="->", color="red"))
+        # plt.show()
+        fig.savefig("{}.png".format(args.infile))
     if args.varlabels is None:
         return
     # PCA loadings
@@ -70,19 +108,22 @@ def dopca(args):
     y = sklearn_pca.components_[1, :]
     fig2, ax2 = plt.subplots(1, 1, figsize=(10, 10))
     plt.scatter(x, y)
-    plt.xlabel('PC1')
-    plt.ylabel('PC2')
-    fig2.savefig('{}.loadings.png'.format(args.infile))
-    df2['pc1'] = x
-    df2['pc2'] = y
-    df2.to_csv('{}_loadings.txt'.format(args.infile), header=True, index=False, sep='\t')
+    plt.xlabel("PC1")
+    plt.ylabel("PC2")
+    fig2.savefig("{}.loadings.png".format(args.infile))
+    df2["pc1"] = x
+    df2["pc2"] = y
+    df2.to_csv(
+        "{}_loadings.txt".format(args.infile), header=True, index=False, sep="\t"
+    )
+
 
 def main(args):
     """ Main entry point of the app """
     dopca(args)
     if args.log:
-        with open('README.txt', 'a') as fout:
-            fout.write('[{}]\t[{}]\n'.format(time.asctime(), ' '.join(sys.argv)))
+        with open("README.txt", "a") as fout:
+            fout.write("[{}]\t[{}]\n".format(time.asctime(), " ".join(sys.argv)))
 
 
 if __name__ == "__main__":
@@ -100,21 +141,21 @@ if __name__ == "__main__":
 
     # Optional argument which requires a parameter (eg. -d test)
     parser.add_argument("-g", "--groups", action="store", help="Sample information")
-    parser.add_argument("-a", "--varlabels", action="store", help="Variable information")
+    parser.add_argument(
+        "-a", "--varlabels", action="store", help="Variable information"
+    )
 
     # Optional verbosity counter (eg. -v, -vv, -vvv, etc.)
     parser.add_argument(
-        '-v',
-        '--verbose',
-        action='count',
-        default=0,
-        help="Verbosity (-v, -vv, etc)")
+        "-v", "--verbose", action="count", default=0, help="Verbosity (-v, -vv, etc)"
+    )
 
     # Specify output of '--version'
     parser.add_argument(
-        '--version',
-        action='version',
-        version='%(prog)s (version {version})'.format(version=__version__))
+        "--version",
+        action="version",
+        version="%(prog)s (version {version})".format(version=__version__),
+    )
 
     args = parser.parse_args()
     main(args)
