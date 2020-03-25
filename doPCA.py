@@ -12,34 +12,30 @@ import time
 import sys
 import pandas as pd
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA as sklearnPCA
 from scipy import stats
 
+matplotlib.use('Agg') # no UI backend
+
 def dopca(args):
-    df = pd.read_table(args.infile, header=None)
-    if args.groups is not None:
-        df1 = pd.read_table(args.groups, header=0)
-        selection = (df1[1] == 'THA')
-        X = df.loc[selection, 2:].values  # Value matrix read depth pr. region
-        category1 = 'flowcell_id'
-        category2 = 'group'
-        y1 = df1.loc[selection, category1].values
-        y2 = df1.loc[selection, category2].values
-        group1 = list(set(df1.loc[selection, category1]))
-        group2 = list(set(df1.loc[selection, category2]))
-    else:
-        t = df.shape
-        X = df.loc[:,1:].values
-        category1 = 'NA'
-        y1 = np.array(['NA'] * t[0])
-        group1 = ['NA']
-        group2 = ['NA']
+    df = pd.read_table(args.infile, header=0)
+    df.set_index('Geneid', inplace=True)
+    if args.transpose:
+        df = df.transpose()
+    t = df.shape
+    X = df.iloc[:,1:].values
+    category1 = 'NA'
+    y1 = np.array(['NA'] * t[0])
+    group1 = ['NA']
+    group2 = ['NA']
     if args.varlabels is not None:
         df2 = pd.read_table(args.varlabels, header=0)
     ## Scale the dataset to unit scale (mean=0, variance=1).
-    # from sklearn.preprocessing import StandardScaler
-    # X_std = StandardScaler().fit_transform(X)
+    if args.standardize:
+        from sklearn.preprocessing import StandardScaler
+        X = StandardScaler().fit_transform(X)
     sklearn_pca = sklearnPCA(n_components=9)
     Y_sklearn = sklearn_pca.fit_transform(X)
     colorbar = ['#e6194b', '#3cb44b', '#ffe119', '#0082c8', '#f58231', '#911eb4', '#46f0f0', '#f032e6', '#d2f53c',
@@ -52,8 +48,8 @@ def dopca(args):
         for lab, col in zip(group1, colorbar[0:len(group1)]):
             plt.scatter(Y_sklearn[y1 == lab, 0], Y_sklearn[y1 == lab, 1], label=lab, c=col, s=100)
         if args.labels:
-            for ind, name in enumerate(df[0]):
-                plt.text(Y_sklearn[ind, 0], Y_sklearn[ind, 1], name)
+            for ind, name in enumerate(df.index):
+                plt.text(Y_sklearn[ind, 0]+5, Y_sklearn[ind, 1]+5, name, fontsize=12)
         xp1, xp2 = sklearn_pca.explained_variance_[0:2]
         plt.xlabel('PC 1 [{:.1f}%]'.format(100 * xp1 / sum(sklearn_pca.explained_variance_)))
         plt.ylabel('PC 2 [{:.1f}%]'.format(100 * xp2 / sum(sklearn_pca.explained_variance_)))
@@ -99,6 +95,8 @@ if __name__ == "__main__":
     # Optional argument flag which defaults to False
     parser.add_argument('-l', '--log', action="store_true", default=True, help="Save command to 'README.txt'")
     parser.add_argument('-b', '--labels', action="store_true", default=False, help="Add labels to plot")
+    parser.add_argument('-t', '--transpose', action="store_true", default=False, help="Transpose datamatrix.")
+    parser.add_argument('-x', '--standardize',action="store_true", default=False, help="Standardize data before PCA.")
 
     # Optional argument which requires a parameter (eg. -d test)
     parser.add_argument("-g", "--groups", action="store", help="Sample information")
