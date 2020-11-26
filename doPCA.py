@@ -12,11 +12,13 @@ import time
 import sys
 import pandas as pd
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA as sklearnPCA
 from adjustText import adjust_text
 from scipy import stats
 
+matplotlib.use('Agg') # no UI backend
 
 def dopca(args):
     if args.header:
@@ -80,10 +82,8 @@ def dopca(args):
                 s=100,
             )
         if args.labels:
-            for ind, name in enumerate(y1):
-                print(Y_sklearn[ind, 0], Y_sklearn[ind, 1], name)
-                #plt.text(Y_sklearn[ind, 0], Y_sklearn[ind, 1], name)
-                #texts.append(plt.text(Y_sklearn[ind, 0], Y_sklearn[ind, 1], name))
+            for ind, name in enumerate(df.index):
+                plt.text(Y_sklearn[ind, 0]+5, Y_sklearn[ind, 1]+5, name, fontsize=12)
         xp1, xp2 = sklearn_pca.explained_variance_[0:2]
         plt.xlabel(
             "PC 1 [{:.1f}%]".format(100 * xp1 / sum(sklearn_pca.explained_variance_))
@@ -165,6 +165,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-b", "--labels", action="store_true", default=False, help="Add labels to plot"
     )
+    parser.add_argument('-x', '--standardize',action="store_true", default=False, help="Standardize data before PCA.")
 
     # Optional argument which requires a parameter (eg. -d test)
     parser.add_argument("-g", "--groups", action="store", help="Sample information")
