@@ -19,30 +19,31 @@ from scipy import stats
 
 
 def dopca(args):
-    df = pd.read_table(args.infile, header=None)
+    if args.header:
+        df = pd.read_table(args.infile, header=0)
+    else:
+        df = pd.read_table(args.infile, header=None)
     if args.groups is not None:
         df1 = pd.read_table(args.groups, header=0)
-        selection = df1[1] == "THA"
-        X = df.loc[selection, 2:].values  # Value matrix read depth pr. region
-        category1 = "flowcell_id"
-        category2 = "group"
-        y1 = df1.loc[selection, category1].values
-        y2 = df1.loc[selection, category2].values
-        group1 = list(set(df1.loc[selection, category1]))
-        group2 = list(set(df1.loc[selection, category2]))
-    else:
-        t = df.shape
-        X = df.loc[:, 1:].values
         category1 = "NA"
-        y1 = np.array(["NA"] * t[0])
+        y1 = np.array(["NA"] * (t[0]))
         group1 = ["NA"]
         group2 = ["NA"]
+    else:
+        t = df.shape
+        X = df.iloc[:, 1:].values
+        category1 = "NA"
+        y1 = np.array(["NA"] * (t[0]))
+        group1 = ["NA"]
+        group2 = ["NA"]
+    # y1 is a list with sample names, or NA.
     if args.varlabels is not None:
         df2 = pd.read_table(args.varlabels, header=0)
     ## Scale the dataset to unit scale (mean=0, variance=1).
     # from sklearn.preprocessing import StandardScaler
     # X_std = StandardScaler().fit_transform(X)
-    sklearn_pca = sklearnPCA(n_components=9)
+    comp = min(9, min(t)-1)
+    sklearn_pca = sklearnPCA(n_components=comp)
     Y_sklearn = sklearn_pca.fit_transform(X)
     colorbar = [
         "#e6194b",
@@ -79,8 +80,10 @@ def dopca(args):
                 s=100,
             )
         if args.labels:
-            for ind, name in enumerate(df[0]):
-                texts.append(plt.text(Y_sklearn[ind, 0], Y_sklearn[ind, 1], name))
+            for ind, name in enumerate(y1):
+                print(Y_sklearn[ind, 0], Y_sklearn[ind, 1], name)
+                #plt.text(Y_sklearn[ind, 0], Y_sklearn[ind, 1], name)
+                #texts.append(plt.text(Y_sklearn[ind, 0], Y_sklearn[ind, 1], name))
         xp1, xp2 = sklearn_pca.explained_variance_[0:2]
         plt.xlabel(
             "PC 1 [{:.1f}%]".format(100 * xp1 / sum(sklearn_pca.explained_variance_))
@@ -101,9 +104,10 @@ def dopca(args):
                     label=lab,
                     edgecolors=col,
                 )
-        plt.legend(loc=0, frameon=True)
+        if "NA" not in y1:
+            plt.legend(loc=0, frameon=True)
         plt.tight_layout()
-        adjust_text(texts, arrowprops=dict(arrowstyle="->", color="red"))
+        #adjust_text(texts, arrowprops=dict(arrowstyle="->", color="red"))
         # plt.show()
         fig.savefig("{}.png".format(args.infile))
     if args.varlabels is None:
@@ -119,7 +123,7 @@ def dopca(args):
     df2["pc1"] = x
     df2["pc2"] = y
     df2.to_csv(
-        "{}_loadings.txt".format(args.infile), header=True, index=False, sep="\t"
+        "{}_loadings.tsv".format(args.infile), header=True, index=False, sep="\t"
     )
 
 
@@ -145,6 +149,18 @@ if __name__ == "__main__":
         action="store_true",
         default=True,
         help="Save command to 'README.txt'",
+    )
+    parser.add_argument(
+            "-e", "--header", action="store_true", default=False, 
+            help="First row contains column headers"
+    )
+    parser.add_argument(
+            "-n", "--samples", action="store_true", default=False, 
+            help="First column contains sample names"
+    )
+    parser.add_argument(
+            "-t", "--transpose", action="store_true", default=False,
+            help="Transpose matrix"
     )
     parser.add_argument(
         "-b", "--labels", action="store_true", default=False, help="Add labels to plot"
